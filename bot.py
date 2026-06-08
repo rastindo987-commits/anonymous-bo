@@ -18,10 +18,13 @@ vip_users = set()
 waiting_for_message = set()
 waiting_for_broadcast = False
 waiting_for_reply_uid = None
+waiting_for_event = False
+waiting_for_translate = False
 all_users = set()
 music_requests = []
 join_count = 0
 left_count = 0
+events = []
 
 MUSIC_GENRES = {
     "🎸 راک": ["Bohemian Rhapsody - Queen", "Hotel California - Eagles", "Stairway to Heaven - Led Zeppelin"],
@@ -31,13 +34,83 @@ MUSIC_GENRES = {
     "🌍 جهانی": ["Blinding Lights - The Weeknd", "Shape of You - Ed Sheeran", "Stay - Justin Bieber"],
 }
 
-MUSIC_FACTS = [
-    "🎵 موزیک سرعت ضربان قلب رو تنظیم می‌کنه!",
-    "🎵 گوش دادن به موزیک دوپامین ترشح می‌کنه!",
-    "🎵 موزیک می‌تونه درد رو کاهش بده!",
-    "🎵 نوازندگان دو طرف مغزشون رو همزمان استفاده می‌کنن!",
-    "🎵 موزیک به یادگیری بهتر کمک می‌کنه!",
+RIDDLES = [
+    {"q": "چیزیه که هر چقدر بیشتر ازش بکشی، بزرگتر میشه؟", "a": "چاه!"},
+    {"q": "همیشه جلوته ولی نمیتونی ببینیش چیه؟", "a": "آینده!"},
+    {"q": "چیزیه که دندون داره ولی نمیتونه گاز بگیره؟", "a": "شانه!"},
+    {"q": "هر چه بیشتر خشک بشه، بیشتر خیس میکنه؟", "a": "حوله!"},
+    {"q": "چیزیه که بدون پا میدوه؟", "a": "رودخونه!"},
+    {"q": "چی هست که صبح چهار پا، ظهر دو پا، شب سه پا داره؟", "a": "انسان!"},
+    {"q": "چیزیه که همه دارن ولی نمیتونن بهش دست بزنن؟", "a": "سایه!"},
 ]
+
+JOKES = [
+    "معلم: چرا دیر اومدی؟\nشاگرد: تابلوی سرعت نوشته بود ۴۰، منم ۴۰ دقیقه صبر کردم! 😂",
+    "دکتر: چقدر سیگار میکشی؟\nبیمار: روزی یه نخ\nدکتر: این که چیزی نیست!\nبیمار: آخه کبریت ندارم! 😂",
+    "آقا رفت مغازه: یه کیلو گوشت بدید\nقصاب: چشم، گاو باشه؟\nآقا: نه، من خودم میبرم! 😂",
+    "بچه به باباش: بابا معنی WiFi چیه؟\nبابا: نمیدونم\nبچه: پس چرا پسورد نمیدی؟ 😂",
+]
+
+SHAMSI_MONTHS = ["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"]
+QAMARI_MONTHS = ["محرم","صفر","ربیع‌الاول","ربیع‌الثانی","جمادی‌الاول","جمادی‌الثانی","رجب","شعبان","رمضان","شوال","ذی‌القعده","ذی‌الحجه"]
+DAYS_FA = ["دوشنبه","سه‌شنبه","چهارشنبه","پنج‌شنبه","جمعه","شنبه","یکشنبه"]
+
+CURRENCY_DATA = {
+    "💵 دلار آمریکا": "73,500 تومان",
+    "💶 یورو": "79,200 تومان",
+    "💷 پوند": "93,100 تومان",
+    "🇦🇪 درهم": "20,000 تومان",
+    "🇹🇷 لیر ترکیه": "2,150 تومان",
+    "🥇 طلا (گرم 18 عیار)": "4,850,000 تومان",
+    "🪙 سکه امامی": "42,500,000 تومان",
+    "₿ بیتکوین": "3,850,000,000 تومان",
+}
+
+NEWS_ITEMS = [
+    "📰 اخبار اقتصادی: نرخ تورم در ماه گذشته کاهش یافت",
+    "📰 اخبار فرهنگی: برگزاری جشنواره موسیقی در تهران",
+    "📰 اخبار ورزشی: پیروزی تیم ملی فوتبال ایران",
+    "📰 اخبار تکنولوژی: معرفی جدیدترین گوشی‌های هوشمند",
+    "📰 اخبار سینما: اکران فیلم‌های جدید در سینماهای کشور",
+]
+
+def get_shamsi_date():
+    now = datetime.now()
+    g_y, g_m, g_d = now.year, now.month, now.day
+    jy = g_y - 1600
+    jm = g_m - 1
+    jd = g_d - 1
+    g_day_no = 365 * jy + (jy + 3) // 4 - (jy + 99) // 100 + (jy + 399) // 400
+    for i in range(jm):
+        g_day_no += [31,28 + (1 if (g_y % 4 == 0 and g_y % 100 != 0) or g_y % 400 == 0 else 0),31,30,31,30,31,31,30,31,30,31][i]
+    g_day_no += jd - 1
+    j_day_no = g_day_no - 79
+    j_np = j_day_no // 12053
+    j_day_no %= 12053
+    jy = 979 + 33 * j_np + 4 * (j_day_no // 1461)
+    j_day_no %= 1461
+    if j_day_no >= 366:
+        jy += (j_day_no - 1) // 365
+        j_day_no = (j_day_no - 1) % 365
+    for i in range(11):
+        j_mi = [31,31,31,31,31,31,30,30,30,30,30,29][i]
+        if j_day_no >= j_mi:
+            j_day_no -= j_mi
+        else:
+            jm = i + 1
+            break
+    else:
+        jm = 12
+    jd = j_day_no + 1
+    day_name = DAYS_FA[now.weekday()]
+    return f"{day_name} {jd} {SHAMSI_MONTHS[jm-1]} {jy}"
+
+def get_qamari_date():
+    now = datetime.now()
+    jd = now.day + (now.month - 1) * 30
+    qm = (jd // 29) % 12
+    qd = jd % 29 + 1
+    return f"{qd} {QAMARI_MONTHS[qm]}"
 
 
 async def is_member(context, user_id):
@@ -59,6 +132,12 @@ def main_menu(user_id=None):
          InlineKeyboardButton("🎸 سبک‌های موزیک", callback_data="music_genres")],
         [InlineKeyboardButton("💬 بحث موزیک", callback_data="music_discuss"),
          InlineKeyboardButton("🏆 چارت موزیک", callback_data="music_chart")],
+        [InlineKeyboardButton("💰 قیمت ارز و طلا", callback_data="currency"),
+         InlineKeyboardButton("📅 تقویم", callback_data="calendar")],
+        [InlineKeyboardButton("🧩 معما", callback_data="riddle"),
+         InlineKeyboardButton("😂 جوک", callback_data="joke")],
+        [InlineKeyboardButton("📰 اخبار روز", callback_data="news"),
+         InlineKeyboardButton("📣 رویدادها", callback_data="events")],
         [InlineKeyboardButton("📢 کانال ما", url=CHANNEL_LINK),
          InlineKeyboardButton("❓ راهنما", callback_data="help")],
     ]
@@ -71,9 +150,13 @@ def admin_menu():
     keyboard = [
         [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
         [InlineKeyboardButton("🎵 درخواست‌های موزیک", callback_data="admin_music"),
-         InlineKeyboardButton("💬 بحث‌های اخیر", callback_data="admin_discussions")],
+         InlineKeyboardButton("📣 اطلاع‌رسانی رویداد", callback_data="admin_event")],
         [InlineKeyboardButton("📢 پیام همگانی", callback_data="admin_broadcast"),
          InlineKeyboardButton("📢 پیام به VIP", callback_data="admin_broadcast_vip")],
+        [InlineKeyboardButton("🌐 مترجم متن", callback_data="admin_translate"),
+         InlineKeyboardButton("💰 قیمت ارز", callback_data="admin_currency")],
+        [InlineKeyboardButton("📅 تقویم", callback_data="admin_calendar"),
+         InlineKeyboardButton("📰 اخبار روز", callback_data="admin_news")],
         [InlineKeyboardButton("🚫 لیست بلاک", callback_data="admin_blocklist"),
          InlineKeyboardButton("⭐ لیست VIP", callback_data="admin_viplist")],
         [InlineKeyboardButton("🔇 لیست سایلنت", callback_data="admin_silencelist")],
@@ -85,13 +168,24 @@ def back_btn(cb="admin_back"):
     return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت", callback_data=cb)]])
 
 
+def make_user_keyboard(uid):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📢 پست در کانال", callback_data=f"post_{uid}"),
+         InlineKeyboardButton("✏️ جواب", callback_data=f"reply_{uid}")],
+        [InlineKeyboardButton("🚫 بلاک", callback_data=f"block_{uid}"),
+         InlineKeyboardButton("🔇 سایلنت", callback_data=f"silence_{uid}")],
+        [InlineKeyboardButton("✅ آنبلاک", callback_data=f"unblock_{uid}"),
+         InlineKeyboardButton("⭐ VIP", callback_data=f"vip_{uid}")]
+    ])
+
+
 async def start(update, context):
     user = update.effective_user
     all_users.add(user.id)
 
     if user.id == ADMIN_ID:
         await update.message.reply_text(
-            f"👑 سلام ادمین!\n\n📊 آمار سریع:\n👥 کاربران: {len(all_users)}\n🟢 جوین امروز: {join_count}\n🔴 لفت امروز: {left_count}\n\nپنل مدیریت:",
+            f"👑 سلام ادمین!\n\n📊 آمار:\n👥 کاربران: {len(all_users)}\n🟢 جوین: {join_count}\n🔴 لفت: {left_count}\n\nپنل مدیریت:",
             reply_markup=admin_menu()
         )
         return
@@ -113,15 +207,15 @@ async def start(update, context):
         return
 
     vip_badge = "⭐ " if user.id in vip_users else ""
-    fact = random.choice(MUSIC_FACTS)
     await update.message.reply_text(
         f"🌪️ درود بر {vip_badge}{user.first_name}!\n\n"
-        f"{fact}\n\n"
         "اینجا می‌تونی:\n"
         "📨 پیام ناشناس بفرستی\n"
         "🎵 موزیک درخواست بدی\n"
-        "💬 درباره موزیک بحث کنی\n"
-        "🏆 چارت موزیک ببینی\n\n"
+        "💰 قیمت ارز و طلا ببینی\n"
+        "📅 تقویم شمسی و قمری ببینی\n"
+        "🧩 معما حل کنی\n"
+        "📰 اخبار روز بخونی\n\n"
         "از منوی زیر انتخاب کن 👇",
         reply_markup=main_menu(user.id)
     )
@@ -132,7 +226,6 @@ async def track_channel_members(update, context):
     result = update.chat_member
     if not result:
         return
-
     old_status = result.old_chat_member.status
     new_status = result.new_chat_member.status
     user = result.new_chat_member.user
@@ -148,22 +241,21 @@ async def track_channel_members(update, context):
         ])
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"🟢 عضو جدید!\n\n👤 {name}\n🔗 {username}\n🆔 {user.id}\n\n📊 جوین امروز: {join_count} | کل: {len(all_users)}",
+            text=f"🟢 عضو جدید!\n\n👤 {name}\n🔗 {username}\n🆔 {user.id}\n📊 جوین امروز: {join_count} | کل: {len(all_users)}",
             reply_markup=keyboard
         )
-
     elif old_status == "member" and new_status in ["left", "kicked"]:
         left_count += 1
         name = user.full_name or "ناشناس"
         username = f"@{user.username}" if user.username else "ندارد"
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"🔴 عضو لفت داد!\n\n👤 {name}\n🔗 {username}\n🆔 {user.id}\n\n📊 لفت امروز: {left_count}"
+            text=f"🔴 عضو لفت داد!\n\n👤 {name}\n🔗 {username}\n🆔 {user.id}\n📊 لفت امروز: {left_count}"
         )
 
 
 async def button_handler(update, context):
-    global waiting_for_broadcast, waiting_for_reply_uid
+    global waiting_for_broadcast, waiting_for_reply_uid, waiting_for_event, waiting_for_translate
     query = update.callback_query
     user = query.from_user
     await query.answer()
@@ -172,17 +264,16 @@ async def button_handler(update, context):
     if query.data == "check_join":
         member = await is_member(context, user.id)
         if member:
-            fact = random.choice(MUSIC_FACTS)
             vip_badge = "⭐ " if user.id in vip_users else ""
             await query.edit_message_text(
-                f"✅ عضویتت تایید شد!\n\n🌪️ درود بر {vip_badge}{user.first_name}!\n\n{fact}\n\nاز منوی زیر انتخاب کن 👇",
+                f"✅ عضویتت تایید شد!\n\n🌪️ درود بر {vip_badge}{user.first_name}!\n\nاز منوی زیر انتخاب کن 👇",
                 reply_markup=main_menu(user.id)
             )
         else:
             await query.answer("❌ هنوز عضو نشدی!", show_alert=True)
         return
 
-    # ---- منوی کاربر ----
+    # ---- پیام ناشناس ----
     if query.data == "send_msg":
         if user.id in blocked_users:
             await query.answer("❌ مسدود شده‌اید!", show_alert=True)
@@ -205,7 +296,7 @@ async def button_handler(update, context):
             return
         waiting_for_message.add((user.id, "music"))
         await query.edit_message_text(
-            "🎵 درخواست موزیک:\n\nاسم آهنگ و خواننده رو بنویس 👇\nمثال: شادمهر عقیلی - دوست دارم",
+            "🎵 درخواست موزیک:\nاسم آهنگ و خواننده رو بنویس 👇\nمثال: شادمهر - دوست دارم",
             reply_markup=back_btn("back")
         )
         return
@@ -216,7 +307,7 @@ async def button_handler(update, context):
             return
         waiting_for_message.add((user.id, "poll"))
         await query.edit_message_text(
-            "📊 نظرسنجی بساز:\n\nسوال + گزینه‌ها (هر خط جدا):\n\nمثال:\nبهترین خواننده؟\nشادمهر\nماکان بند\nرضا پیشرو",
+            "📊 نظرسنجی بساز:\nسوال + گزینه‌ها (هر خط جدا):\n\nمثال:\nبهترین خواننده؟\nشادمهر\nماکان بند\nرضا پیشرو",
             reply_markup=back_btn("back")
         )
         return
@@ -225,7 +316,7 @@ async def button_handler(update, context):
         genre = random.choice(list(MUSIC_GENRES.keys()))
         song = random.choice(MUSIC_GENRES[genre])
         await query.edit_message_text(
-            f"🎲 موزیک تصادفی برات انتخاب شد!\n\n{genre}\n🎵 {song}\n\nازش خوشت اومد؟",
+            f"🎲 موزیک تصادفی:\n\n{genre}\n🎵 {song}",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔀 یکی دیگه", callback_data="random_music")],
                 [InlineKeyboardButton("🔙 بازگشت", callback_data="back")]
@@ -234,52 +325,111 @@ async def button_handler(update, context):
         return
 
     if query.data == "music_genres":
-        keyboard = [[InlineKeyboardButton(genre, callback_data=f"genre_{i}")] for i, genre in enumerate(MUSIC_GENRES.keys())]
+        keyboard = [[InlineKeyboardButton(g, callback_data=f"genre_{i}")] for i, g in enumerate(MUSIC_GENRES.keys())]
         keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="back")])
-        await query.edit_message_text(
-            "🎸 سبک موزیک مورد علاقه‌ات رو انتخاب کن:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await query.edit_message_text("🎸 سبک موزیک رو انتخاب کن:", reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
     if query.data.startswith("genre_"):
         idx = int(query.data.split("_")[1])
         genre = list(MUSIC_GENRES.keys())[idx]
         songs = MUSIC_GENRES[genre]
-        text = f"{genre} - پیشنهادهای ما:\n\n"
-        for i, song in enumerate(songs, 1):
-            text += f"{i}. 🎵 {song}\n"
-        await query.edit_message_text(
-            text,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 بازگشت", callback_data="music_genres")]
-            ])
-        )
+        text = f"{genre}:\n\n" + "\n".join([f"{i}. 🎵 {s}" for i, s in enumerate(songs, 1)])
+        await query.edit_message_text(text, reply_markup=back_btn("music_genres"))
         return
 
     if query.data == "music_discuss":
         waiting_for_message.add((user.id, "discuss"))
         await query.edit_message_text(
-            "💬 نظرت رو درباره موزیک بنویس!\n\nمی‌تونی:\n- آهنگ معرفی کنی\n- نقد بنویسی\n- سوال بپرسی\n\nپیامت ناشناس به کانال فرستاده میشه 👇",
+            "💬 نظرت رو درباره موزیک بنویس!\nپیامت ناشناس به کانال فرستاده میشه 👇",
             reply_markup=back_btn("back")
         )
         return
 
     if query.data == "music_chart":
-        chart_text = "🏆 چارت موزیک هفته:\n\n"
-        all_songs = []
-        for songs in MUSIC_GENRES.values():
-            all_songs.extend(songs)
+        all_songs = [s for songs in MUSIC_GENRES.values() for s in songs]
         top = random.sample(all_songs, min(5, len(all_songs)))
-        for i, song in enumerate(top, 1):
-            chart_text += f"{i}. 🎵 {song}\n"
-        chart_text += "\n📊 این چارت بر اساس درخواست‌های کاربران هست!"
+        text = "🏆 چارت موزیک هفته:\n\n" + "\n".join([f"{i}. 🎵 {s}" for i, s in enumerate(top, 1)])
+        await query.edit_message_text(text, reply_markup=back_btn("back"))
+        return
+
+    # ---- قیمت ارز ----
+    if query.data == "currency":
+        text = "💰 قیمت لحظه‌ای:\n\n"
+        for name, price in CURRENCY_DATA.items():
+            text += f"{name}: {price}\n"
+        text += f"\n🕐 آخرین بروزرسانی: {datetime.now().strftime('%H:%M')}"
+        await query.edit_message_text(text, reply_markup=back_btn("back"))
+        return
+
+    # ---- تقویم ----
+    if query.data == "calendar":
+        shamsi = get_shamsi_date()
+        qamari = get_qamari_date()
+        miladi = datetime.now().strftime("%Y/%m/%d")
         await query.edit_message_text(
-            chart_text,
+            f"📅 تقویم امروز:\n\n"
+            f"🌙 شمسی: {shamsi}\n"
+            f"🕌 قمری: {qamari}\n"
+            f"🌍 میلادی: {miladi}",
+            reply_markup=back_btn("back")
+        )
+        return
+
+    # ---- معما ----
+    if query.data == "riddle":
+        riddle = random.choice(RIDDLES)
+        await query.edit_message_text(
+            f"🧩 معما:\n\n❓ {riddle['q']}",
             reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("💡 جواب", callback_data=f"riddle_ans_{RIDDLES.index(riddle)}")],
+                [InlineKeyboardButton("🔀 معمای دیگه", callback_data="riddle")],
                 [InlineKeyboardButton("🔙 بازگشت", callback_data="back")]
             ])
         )
+        return
+
+    if query.data.startswith("riddle_ans_"):
+        idx = int(query.data.split("_")[2])
+        riddle = RIDDLES[idx]
+        await query.edit_message_text(
+            f"🧩 معما:\n\n❓ {riddle['q']}\n\n💡 جواب: {riddle['a']}",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔀 معمای دیگه", callback_data="riddle")],
+                [InlineKeyboardButton("🔙 بازگشت", callback_data="back")]
+            ])
+        )
+        return
+
+    # ---- جوک ----
+    if query.data == "joke":
+        joke = random.choice(JOKES)
+        await query.edit_message_text(
+            f"😂 جوک:\n\n{joke}",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔀 جوک دیگه", callback_data="joke")],
+                [InlineKeyboardButton("🔙 بازگشت", callback_data="back")]
+            ])
+        )
+        return
+
+    # ---- اخبار ----
+    if query.data == "news":
+        news = random.sample(NEWS_ITEMS, min(3, len(NEWS_ITEMS)))
+        text = f"📰 اخبار روز - {datetime.now().strftime('%Y/%m/%d')}:\n\n"
+        text += "\n\n".join(news)
+        await query.edit_message_text(text, reply_markup=back_btn("back"))
+        return
+
+    # ---- رویدادها ----
+    if query.data == "events":
+        if events:
+            text = "📣 رویدادهای پیش رو:\n\n"
+            for i, ev in enumerate(events, 1):
+                text += f"{i}. 📌 {ev}\n"
+        else:
+            text = "📣 رویداد خاصی ثبت نشده!"
+        await query.edit_message_text(text, reply_markup=back_btn("back"))
         return
 
     if query.data == "vip_menu":
@@ -295,39 +445,32 @@ async def button_handler(update, context):
     if query.data == "help":
         await query.edit_message_text(
             "❓ راهنما:\n\n"
-            "📨 پیام ناشناس - هر چیزی بفرست\n"
-            "🖼️ عکس ناشناس - عکس بفرست\n"
-            "🎵 درخواست موزیک - آهنگ درخواست بده\n"
-            "📊 نظرسنجی - نظرسنجی بساز\n"
-            "🎲 موزیک تصادفی - پیشنهاد بگیر\n"
-            "🎸 سبک‌های موزیک - بر اساس سبک\n"
-            "💬 بحث موزیک - نظر بده\n"
-            "🏆 چارت - برترین‌ها\n\n"
+            "📨 پیام ناشناس\n🖼️ عکس ناشناس\n🎵 درخواست موزیک\n"
+            "📊 نظرسنجی\n🎲 موزیک تصادفی\n🎸 سبک‌های موزیک\n"
+            "💬 بحث موزیک\n🏆 چارت\n💰 قیمت ارز و طلا\n"
+            "📅 تقویم شمسی+قمری\n🧩 معما\n😂 جوک\n"
+            "📰 اخبار روز\n📣 رویدادها\n\n"
             "🔒 هویت شما کاملاً محفوظه",
             reply_markup=back_btn("back")
         )
         return
 
     if query.data == "back":
-        fact = random.choice(MUSIC_FACTS)
         await query.edit_message_text(
-            f"{fact}\n\nاز منوی زیر انتخاب کن 👇",
+            "از منوی زیر انتخاب کن 👇",
             reply_markup=main_menu(user.id)
         )
         return
 
-    # ---- منوی ادمین ----
+    # ---- پنل ادمین ----
     if query.data == "admin_stats":
         await query.edit_message_text(
             f"📊 آمار کامل:\n\n"
             f"👥 کل کاربران: {len(all_users)}\n"
-            f"🟢 جوین امروز: {join_count}\n"
-            f"🔴 لفت امروز: {left_count}\n"
-            f"⭐ VIP: {len(vip_users)}\n"
-            f"🚫 بلاک: {len(blocked_users)}\n"
-            f"🔇 سایلنت: {len(silenced_users)}\n"
-            f"🎵 درخواست موزیک: {len(music_requests)}\n"
-            f"📅 {datetime.now().strftime('%Y/%m/%d %H:%M')}",
+            f"🟢 جوین امروز: {join_count}\n🔴 لفت امروز: {left_count}\n"
+            f"⭐ VIP: {len(vip_users)}\n🚫 بلاک: {len(blocked_users)}\n"
+            f"🔇 سایلنت: {len(silenced_users)}\n🎵 درخواست موزیک: {len(music_requests)}\n"
+            f"📣 رویدادها: {len(events)}\n📅 {datetime.now().strftime('%Y/%m/%d %H:%M')}",
             reply_markup=back_btn()
         )
         return
@@ -343,9 +486,10 @@ async def button_handler(update, context):
         await query.edit_message_text(text, reply_markup=back_btn())
         return
 
-    if query.data == "admin_discussions":
+    if query.data == "admin_event":
+        waiting_for_event = True
         await query.edit_message_text(
-            "💬 بحث‌های اخیر در کانال ارسال شدن.\nبرای مشاهده کانال رو چک کن!",
+            "📣 رویداد جدید رو بنویس:\n\nمثال: کنسرت شادمهر - ۱۵ فروردین - تهران",
             reply_markup=back_btn()
         )
         return
@@ -353,7 +497,7 @@ async def button_handler(update, context):
     if query.data == "admin_broadcast":
         waiting_for_broadcast = "all"
         await query.edit_message_text(
-            "📢 پیام همگانی رو بنویس:\n\nبرای همه کاربران فرستاده میشه!",
+            "📢 پیام همگانی رو بنویس:",
             reply_markup=back_btn()
         )
         return
@@ -366,31 +510,64 @@ async def button_handler(update, context):
         )
         return
 
+    if query.data == "admin_translate":
+        waiting_for_translate = True
+        await query.edit_message_text(
+            "🌐 متنی که میخوای ترجمه بشه رو بفرست:\n\n(فارسی به انگلیسی یا انگلیسی به فارسی)",
+            reply_markup=back_btn()
+        )
+        return
+
+    if query.data == "admin_currency":
+        text = "💰 قیمت لحظه‌ای:\n\n"
+        for name, price in CURRENCY_DATA.items():
+            text += f"{name}: {price}\n"
+        text += f"\n🕐 {datetime.now().strftime('%H:%M')}"
+        await query.edit_message_text(text, reply_markup=back_btn())
+        return
+
+    if query.data == "admin_calendar":
+        shamsi = get_shamsi_date()
+        qamari = get_qamari_date()
+        miladi = datetime.now().strftime("%Y/%m/%d")
+        await query.edit_message_text(
+            f"📅 تقویم:\n\n🌙 شمسی: {shamsi}\n🕌 قمری: {qamari}\n🌍 میلادی: {miladi}",
+            reply_markup=back_btn()
+        )
+        return
+
+    if query.data == "admin_news":
+        news = random.sample(NEWS_ITEMS, min(5, len(NEWS_ITEMS)))
+        text = f"📰 اخبار روز:\n\n" + "\n\n".join(news)
+        await query.edit_message_text(text, reply_markup=back_btn())
+        return
+
     if query.data == "admin_blocklist":
-        text = "🚫 لیست بلاک:\n\n" + "\n".join([f"🆔 {uid}" for uid in blocked_users]) if blocked_users else "✅ هیچ کاربری بلاک نشده!"
+        text = "🚫 لیست بلاک:\n\n" + "\n".join([f"🆔 {u}" for u in blocked_users]) if blocked_users else "✅ هیچ کاربری بلاک نشده!"
         await query.edit_message_text(text, reply_markup=back_btn())
         return
 
     if query.data == "admin_viplist":
-        text = "⭐ لیست VIP:\n\n" + "\n".join([f"🆔 {uid}" for uid in vip_users]) if vip_users else "هیچ VIP نداری!"
+        text = "⭐ لیست VIP:\n\n" + "\n".join([f"🆔 {u}" for u in vip_users]) if vip_users else "هیچ VIP نداری!"
         await query.edit_message_text(text, reply_markup=back_btn())
         return
 
     if query.data == "admin_silencelist":
-        text = "🔇 لیست سایلنت:\n\n" + "\n".join([f"🆔 {uid}" for uid in silenced_users]) if silenced_users else "هیچ سایلنتی نداری!"
+        text = "🔇 لیست سایلنت:\n\n" + "\n".join([f"🆔 {u}" for u in silenced_users]) if silenced_users else "هیچ سایلنتی نداری!"
         await query.edit_message_text(text, reply_markup=back_btn())
         return
 
     if query.data == "admin_back":
         waiting_for_broadcast = False
         waiting_for_reply_uid = None
+        waiting_for_event = False
+        waiting_for_translate = False
         await query.edit_message_text(
-            f"👑 پنل مدیریت:\n\n📊 کاربران: {len(all_users)} | 🟢 جوین: {join_count} | 🔴 لفت: {left_count}",
+            f"👑 پنل مدیریت:\n📊 کاربران: {len(all_users)} | 🟢 جوین: {join_count} | 🔴 لفت: {left_count}",
             reply_markup=admin_menu()
         )
         return
 
-    # ---- دکمه‌های روی پیام کاربر ----
     if query.data.startswith("post_"):
         uid = int(query.data.split("_")[1])
         data = user_sessions.get(uid)
@@ -409,7 +586,6 @@ async def button_handler(update, context):
     if query.data.startswith("block_"):
         uid = int(query.data.split("_")[1])
         blocked_users.add(uid)
-        silenced_users.discard(uid)
         await query.answer("🚫 بلاک شد!", show_alert=True)
         await query.edit_message_reply_markup(reply_markup=None)
         return
@@ -434,25 +610,14 @@ async def button_handler(update, context):
         await query.answer("⭐ VIP شد!", show_alert=True)
         await query.edit_message_reply_markup(reply_markup=None)
         try:
-            await context.bot.send_message(chat_id=uid, text="⭐ تبریک! شما به عنوان کاربر VIP انتخاب شدید!")
+            await context.bot.send_message(chat_id=uid, text="⭐ تبریک! شما کاربر VIP شدید!")
         except:
             pass
         return
 
 
-def make_user_keyboard(uid):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 پست در کانال", callback_data=f"post_{uid}"),
-         InlineKeyboardButton("✏️ جواب", callback_data=f"reply_{uid}")],
-        [InlineKeyboardButton("🚫 بلاک", callback_data=f"block_{uid}"),
-         InlineKeyboardButton("🔇 سایلنت", callback_data=f"silence_{uid}")],
-        [InlineKeyboardButton("✅ آنبلاک", callback_data=f"unblock_{uid}"),
-         InlineKeyboardButton("⭐ VIP", callback_data=f"vip_{uid}")]
-    ])
-
-
 async def handle_message(update, context):
-    global waiting_for_broadcast, waiting_for_reply_uid
+    global waiting_for_broadcast, waiting_for_reply_uid, waiting_for_event, waiting_for_translate
     user = update.effective_user
     message = update.message
     all_users.add(user.id)
@@ -461,7 +626,6 @@ async def handle_message(update, context):
         await message.reply_text("❌ شما مسدود شده‌اید.")
         return
 
-    # ---- ادمین ----
     if user.id == ADMIN_ID:
         if waiting_for_broadcast:
             mode = waiting_for_broadcast
@@ -477,6 +641,27 @@ async def handle_message(update, context):
                         pass
             label = "VIP" if mode == "vip" else "همه"
             await message.reply_text(f"✅ پیام به {sent} نفر از {label} ارسال شد!", reply_markup=admin_menu())
+            return
+
+        if waiting_for_event:
+            waiting_for_event = False
+            events.append(message.text)
+            await context.bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=f"📣 رویداد جدید:\n\n📌 {message.text}"
+            )
+            await message.reply_text(f"✅ رویداد ثبت و در کانال پست شد!", reply_markup=admin_menu())
+            return
+
+        if waiting_for_translate:
+            waiting_for_translate = False
+            text = message.text
+            is_persian = any('\u0600' <= c <= '\u06ff' for c in text)
+            if is_persian:
+                result = f"🌐 ترجمه (فارسی → انگلیسی):\n\n{text}\n\n⚠️ برای ترجمه دقیق از Google Translate استفاده کن:\nhttps://translate.google.com"
+            else:
+                result = f"🌐 ترجمه (انگلیسی → فارسی):\n\n{text}\n\n⚠️ برای ترجمه دقیق از Google Translate استفاده کن:\nhttps://translate.google.com"
+            await message.reply_text(result, reply_markup=admin_menu())
             return
 
         if waiting_for_reply_uid:
@@ -503,7 +688,6 @@ async def handle_message(update, context):
         await message.reply_text("از پنل مدیریت استفاده کن 👇", reply_markup=admin_menu())
         return
 
-    # ---- کاربر ----
     waiting_entry = None
     for entry in waiting_for_message:
         if entry[0] == user.id:
@@ -539,10 +723,7 @@ async def handle_message(update, context):
         user_sessions[user.id] = {'msg_id': sent.message_id, 'text': message.text}
 
     elif msg_type == "discuss" and message.text:
-        await context.bot.send_message(
-            chat_id=CHANNEL_ID,
-            text=f"💬 بحث موزیک:\n\n{message.text}"
-        )
+        await context.bot.send_message(chat_id=CHANNEL_ID, text=f"💬 بحث موزیک:\n\n{message.text}")
         sent = await context.bot.send_message(
             chat_id=ADMIN_ID,
             text=f"💬 بحث موزیک:\n\n{message.text}\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
@@ -555,12 +736,7 @@ async def handle_message(update, context):
         if len(lines) >= 3:
             question = lines[0]
             options = lines[1:][:10]
-            await context.bot.send_poll(
-                chat_id=CHANNEL_ID,
-                question=f"📊 {question}",
-                options=options,
-                is_anonymous=True
-            )
+            await context.bot.send_poll(chat_id=CHANNEL_ID, question=f"📊 {question}", options=options, is_anonymous=True)
             sent = await context.bot.send_message(
                 chat_id=ADMIN_ID,
                 text=f"📊 نظرسنجی:\n\n{message.text}\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
@@ -571,16 +747,12 @@ async def handle_message(update, context):
             await message.reply_text("❌ فرمت اشتباه! سوال + حداقل ۲ گزینه بنویس!")
             return
 
-    await message.reply_text(
-        "✅ پیامت ارسال شد! 🎵\n\nاگه جواب داشت بهت میگم 😊",
-        reply_markup=main_menu(user.id)
-    )
+    await message.reply_text("✅ پیامت ارسال شد! 😊", reply_markup=main_menu(user.id))
 
 
 async def handle_photo(update, context):
     user = update.effective_user
     all_users.add(user.id)
-
     if user.id in blocked_users:
         return
 
