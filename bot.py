@@ -1,4 +1,3 @@
-Rastin:
 import logging
 import random
 import json
