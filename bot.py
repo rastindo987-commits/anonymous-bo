@@ -1,4 +1,4 @@
-import logging
+mport logging
 import random
 import json
 import os
@@ -650,7 +650,8 @@ async def handle_message(update, context):
             else:
                 await message.reply_text("🔇 سایلنته!", reply_markup=admin_menu())
             return
-if message.reply_to_message:
+
+        if message.reply_to_message:
             for uid, data in user_sessions.items():
                 if data['msg_id'] == message.reply_to_message.message_id:
                     if uid not in silenced_users:
