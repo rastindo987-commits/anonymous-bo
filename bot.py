@@ -1,4 +1,5 @@
-mport logging
+Rastin:
+import logging
 import random
 import json
 import os
@@ -107,7 +108,9 @@ def get_shamsi_date():
     j_day_no %= 12053
     jy = 979 + 33*j_np + 4*(j_day_no//1461)
     j_day_no %= 1461
-    if j_day_no >= 366:
+    if j_day_no
+
+>= 366:
         jy += (j_day_no-1)//365
         j_day_no = (j_day_no-1)%365
     jm = 12
@@ -217,7 +220,8 @@ async def start(update, context):
             f"👑 سلام ادمین!\n📊 کاربران ربات: {len(all_users)} | 🟢 جوین: {join_count} | 🔴 لفت: {left_count}",
             reply_markup=admin_menu()
         )
-        return
+
+return
 
     if user.id in blocked_users:
         await update.message.reply_text("❌ شما مسدود شده‌اید.")
@@ -332,7 +336,8 @@ async def button_handler(update, context):
 
     if query.data == "send_poll":
         if user.id in blocked_users:
-            await query.answer("❌ مسدود شده‌اید!", show_alert=True)
+
+await query.answer("❌ مسدود شده‌اید!", show_alert=True)
             return
         waiting_for_message.add((user.id, "poll"))
         await query.edit_message_text(
@@ -430,7 +435,8 @@ async def button_handler(update, context):
                 [InlineKeyboardButton("🔀 جوک دیگه", callback_data="joke")],
                 [InlineKeyboardButton("🔙 بازگشت", callback_data="fun_menu")]
             ])
-        )
+
+)
         return
 
     if query.data == "vip_menu":
@@ -540,7 +546,9 @@ async def button_handler(update, context):
         uid = int(query.data.split("_")[1])
         data = user_sessions.get(uid)
         if data and data.get('text'):
-            await context.bot.send_message(chat_id=CHANNEL_ID, text=f"📨 پیام ناشناس:\n\n{data['text']}")
+            await context.bot.send_message(chat_id=CHANNEL_ID, text=f"📨 پیام ناشناس:\
+
+n\n{data['text']}")
             await query.answer("✅ پست شد!", show_alert=True)
         return
 
@@ -643,7 +651,9 @@ async def handle_message(update, context):
             if uid not in silenced_users:
                 try:
                     admin_msg_id = user_sessions.get(uid, {}).get('msg_id', 0)
-                    await send_reply_to_user(context, uid, admin_msg_id, message)
+                    await send_reply_to_user(cont
+
+ext, uid, admin_msg_id, message)
                     await message.reply_text("✅ جواب ارسال شد!", reply_markup=admin_menu())
                 except:
                     await message.reply_text("❌ نتونستم بفرستم!", reply_markup=admin_menu())
@@ -738,7 +748,9 @@ async def handle_message(update, context):
         user_sessions[user.id] = {'msg_id': sent.message_id, 'text': message.text}
 
     elif msg_type == "poll" and message.text:
-        lines = message.text.strip().split('\n')
+        lines = message.text.s
+
+trip().split('\n')
         if len(lines) >= 3:
             await context.bot.send_poll(
                 chat_id=CHANNEL_ID,
@@ -798,5 +810,5 @@ def main():
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
-if __name__ == "__main__":
+if name == "main":
     main()
