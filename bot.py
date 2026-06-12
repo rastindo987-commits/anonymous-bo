@@ -1,27 +1,64 @@
 import logging
 import random
+import json
+import os
 from datetime import datetime
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatMemberUpdated
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, CallbackQueryHandler, filters, ChatMemberHandler
 
 BOT_TOKEN = "8348876985:AAHeUsnnvlAyCyQX4jhxTMGucPzcxBxKss4"
 CHANNEL_ID = "@Craaaazyhouse"
 CHANNEL_LINK = "https://t.me/Craaaazyhouse"
 ADMIN_ID = 1233167568
+DATA_FILE = "data.json"
 
 logging.basicConfig(level=logging.INFO)
 
+# ---- ذخیره و بارگذاری داده ----
+def load_data():
+    global all_users, blocked_users, silenced_users, vip_users, music_requests, join_count, left_count
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                data = json.load(f)
+            all_users = set(data.get("all_users", []))
+            blocked_users = set(data.get("blocked_users", []))
+            silenced_users = set(data.get("silenced_users", []))
+            vip_users = set(data.get("vip_users", []))
+            music_requests = data.get("music_requests", [])
+            join_count = data.get("join_count", 0)
+            left_count = data.get("left_count", 0)
+        except:
+            pass
+
+def save_data():
+    try:
+        with open(DATA_FILE, "w") as f:
+            json.dump({
+                "all_users": list(all_users),
+                "blocked_users": list(blocked_users),
+                "silenced_users": list(silenced_users),
+                "vip_users": list(vip_users),
+                "music_requests": music_requests,
+                "join_count": join_count,
+                "left_count": left_count,
+            }, f)
+    except:
+        pass
+
 user_sessions = {}
-blocked_users = set()
-silenced_users = set()
-vip_users = set()
 waiting_for_message = set()
 waiting_for_broadcast = False
 waiting_for_reply_uid = None
 all_users = set()
+blocked_users = set()
+silenced_users = set()
+vip_users = set()
 music_requests = []
 join_count = 0
 left_count = 0
+
+load_data()
 
 MUSIC_GENRES = {
     "🎸 راک": ["Bohemian Rhapsody - Queen", "Hotel California - Eagles", "Stairway to Heaven - Led Zeppelin"],
@@ -50,22 +87,9 @@ QAMARI_MONTHS = ["محرم","صفر","ربیع‌الاول","ربیع‌الث�
 DAYS_FA = ["دوشنبه","سه‌شنبه","چهارشنبه","پنج‌شنبه","جمعه","شنبه","یکشنبه"]
 
 OCCASIONS = {
-    (1, 1): "🎉 نوروز - جشن سال نو ایرانی",
-    (1, 2): "🌸 دومین روز نوروز",
-    (1, 13): "🌿 سیزده به در",
-    (1, 29): "🌸 روز طبیعت",
-    (2, 1): "📚 روز بزرگداشت سعدی",
-    (3, 1): "🌹 روز مادر",
-    (3, 14): "👨‍👧 روز پدر",
-    (4, 1): "🏛️ روز معمار",
-    (5, 17): "🖥️ روز جهانی ارتباطات",
-    (6, 1): "💚 روز محیط زیست ایران",
-    (7, 7): "🍂 آغاز پاییز",
-    (8, 8): "📖 روز کتاب",
-    (9, 1): "❄️ آغاز زمستان",
-    (10, 5): "📻 روز رادیو",
-    (11, 22): "🎭 روز هنر",
-    (12, 29): "🕯️ شب یلدا (تقریبی)",
+    (1,1): "🎉 نوروز", (1,13): "🌿 سیزده به در",
+    (3,1): "🌹 روز مادر", (3,14): "👨‍👧 روز پدر",
+    (12,29): "🕯️ شب یلدا (تقریبی)",
 }
 
 def get_shamsi_date():
@@ -74,27 +98,26 @@ def get_shamsi_date():
     jy = g_y - 1600
     jm = g_m - 1
     jd = g_d - 1
-    g_day_no = 365 * jy + (jy + 3) // 4 - (jy + 99) // 100 + (jy + 399) // 400
+    g_day_no = 365*jy + (jy+3)//4 - (jy+99)//100 + (jy+399)//400
     for i in range(jm):
         g_day_no += [31,28+(1 if (g_y%4==0 and g_y%100!=0) or g_y%400==0 else 0),31,30,31,30,31,31,30,31,30,31][i]
     g_day_no += jd - 1
     j_day_no = g_day_no - 79
     j_np = j_day_no // 12053
     j_day_no %= 12053
-    jy = 979 + 33 * j_np + 4 * (j_day_no // 1461)
+    jy = 979 + 33*j_np + 4*(j_day_no//1461)
     j_day_no %= 1461
     if j_day_no >= 366:
-        jy += (j_day_no - 1) // 365
-        j_day_no = (j_day_no - 1) % 365
+        jy += (j_day_no-1)//365
+        j_day_no = (j_day_no-1)%365
+    jm = 12
     for i in range(11):
         j_mi = [31,31,31,31,31,31,30,30,30,30,30,29][i]
         if j_day_no >= j_mi:
             j_day_no -= j_mi
         else:
-            jm = i + 1
+            jm = i+1
             break
-    else:
-        jm = 12
     jd = j_day_no + 1
     day_name = DAYS_FA[now.weekday()]
     occasion = OCCASIONS.get((jm, jd), "")
@@ -102,9 +125,9 @@ def get_shamsi_date():
 
 def get_qamari_date():
     now = datetime.now()
-    jd = now.day + (now.month - 1) * 30
-    qm = (jd // 29) % 12
-    qd = jd % 29 + 1
+    jd = now.day + (now.month-1)*30
+    qm = (jd//29)%12
+    qd = jd%29+1
     return qd, QAMARI_MONTHS[qm]
 
 
@@ -129,48 +152,44 @@ def main_menu(user_id=None):
 
 
 def more_menu():
-    keyboard = [
+    return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎵 موزیک", callback_data="music_menu"),
          InlineKeyboardButton("🎭 سرگرمی", callback_data="fun_menu")],
         [InlineKeyboardButton("📅 تقویم", callback_data="calendar"),
          InlineKeyboardButton("📊 نظرسنجی", callback_data="send_poll")],
         [InlineKeyboardButton("🔙 بازگشت", callback_data="back")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
+    ])
 
 
 def music_menu():
-    keyboard = [
+    return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎵 درخواست موزیک", callback_data="send_music")],
-        [InlineKeyboardButton("🎲 موزیک تصادفی", callback_data="random_music"),
+        [InlineKeyboardButton("🎲 تصادفی", callback_data="random_music"),
          InlineKeyboardButton("🎸 سبک‌ها", callback_data="music_genres")],
         [InlineKeyboardButton("🏆 چارت", callback_data="music_chart"),
          InlineKeyboardButton("💬 بحث", callback_data="music_discuss")],
         [InlineKeyboardButton("🔙 بازگشت", callback_data="more_menu")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
+    ])
 
 
 def fun_menu():
-    keyboard = [
+    return InlineKeyboardMarkup([
         [InlineKeyboardButton("🧩 معما", callback_data="riddle"),
          InlineKeyboardButton("😂 جوک", callback_data="joke")],
         [InlineKeyboardButton("🔙 بازگشت", callback_data="more_menu")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
+    ])
 
 
 def admin_menu():
-    keyboard = [
+    return InlineKeyboardMarkup([
         [InlineKeyboardButton("📊 آمار", callback_data="admin_stats")],
         [InlineKeyboardButton("🎵 درخواست‌های موزیک", callback_data="admin_music")],
         [InlineKeyboardButton("📢 پیام همگانی", callback_data="admin_broadcast"),
-         InlineKeyboardButton("📢 پیام VIP", callback_data="admin_broadcast_vip")],
+         InlineKeyboardButton("⭐ پیام VIP", callback_data="admin_broadcast_vip")],
         [InlineKeyboardButton("🚫 لیست بلاک", callback_data="admin_blocklist"),
          InlineKeyboardButton("⭐ لیست VIP", callback_data="admin_viplist")],
         [InlineKeyboardButton("🔇 لیست سایلنت", callback_data="admin_silencelist")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
+    ])
 
 
 def back_btn(cb="admin_back"):
@@ -191,10 +210,11 @@ def make_user_keyboard(uid):
 async def start(update, context):
     user = update.effective_user
     all_users.add(user.id)
+    save_data()
 
     if user.id == ADMIN_ID:
         await update.message.reply_text(
-            f"👑 سلام ادمین!\n📊 کاربران: {len(all_users)} | 🟢 جوین: {join_count} | 🔴 لفت: {left_count}",
+            f"👑 سلام ادمین!\n📊 کاربران ربات: {len(all_users)} | 🟢 جوین: {join_count} | 🔴 لفت: {left_count}",
             reply_markup=admin_menu()
         )
         return
@@ -236,6 +256,7 @@ async def track_channel_members(update, context):
     if old_status in ["left", "kicked"] and new_status == "member":
         join_count += 1
         all_users.add(user.id)
+        save_data()
         name = user.full_name or "ناشناس"
         username = f"@{user.username}" if user.username else "ندارد"
         keyboard = InlineKeyboardMarkup([
@@ -244,15 +265,16 @@ async def track_channel_members(update, context):
         ])
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"🟢 عضو جدید!\n👤 {name} | 🔗 {username} | 🆔 {user.id}\n📊 جوین: {join_count} | کل: {len(all_users)}",
+            text=f"🟢 عضو جدید!\n👤 {name}\n🔗 {username}\n🆔 {user.id}\n📊 جوین: {join_count} | کل: {len(all_users)}",
             reply_markup=keyboard
         )
     elif old_status == "member" and new_status in ["left", "kicked"]:
         left_count += 1
+        save_data()
         name = user.full_name or "ناشناس"
         await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"🔴 لفت داد: {name} | لفت امروز: {left_count}"
+            text=f"🔴 لفت داد: {name} | لفت: {left_count}"
         )
 
 
@@ -280,7 +302,7 @@ async def button_handler(update, context):
             return
         waiting_for_message.add((user.id, "anon"))
         await query.edit_message_text(
-            "📨 پیامت رو بفرست:\n\n✅ پیام متنی\n✅ عکس\n✅ ویدیو\n✅ استیکر\n✅ گیف\n\nهر چیزی که میخوای ناشناس بفرست 👇",
+            "📨 پیامت رو بفرست:\n\n✅ متن | ✅ عکس | ✅ ویدیو | ✅ استیکر | ✅ گیف\n\nهر چیزی که میخوای ناشناس بفرست 👇",
             reply_markup=back_btn("back")
         )
         return
@@ -355,7 +377,7 @@ async def button_handler(update, context):
     if query.data == "music_discuss":
         waiting_for_message.add((user.id, "discuss"))
         await query.edit_message_text(
-            "💬 نظرت درباره موزیک رو بنویس:\nناشناس به کانال فرستاده میشه 👇",
+            "💬 نظرت درباره موزیک:\nناشناس به کانال فرستاده میشه 👇",
             reply_markup=back_btn("music_menu")
         )
         return
@@ -413,7 +435,7 @@ async def button_handler(update, context):
 
     if query.data == "vip_menu":
         await query.edit_message_text(
-            "⭐ پنل VIP\n\nشما کاربر ویژه هستید!\nپیام‌هات با اولویت بررسی میشه.",
+            "⭐ پنل VIP\n\nشما کاربر ویژه هستید!",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("📨 ارسال ناشناس", callback_data="send_anon")],
                 [InlineKeyboardButton("🔙 بازگشت", callback_data="back")]
@@ -424,11 +446,10 @@ async def button_handler(update, context):
     if query.data == "help":
         await query.edit_message_text(
             "❓ راهنما:\n\n"
-            "📨 ارسال ناشناس - پیام، عکس، ویدیو، استیکر\n"
-            "🌙 بیشتر - موزیک، سرگرمی، تقویم، نظرسنجی\n"
-            "📢 کانال ما\n\n"
+            "📨 ارسال ناشناس - پیام، عکس، ویدیو، استیکر، گیف\n"
+            "🌙 بیشتر - موزیک، سرگرمی، تقویم، نظرسنجی\n\n"
             "🔒 هویت شما کاملاً محفوظه\n"
-            "✅ وقتی جوابت رو دیدی، دکمه دیدم رو بزن",
+            "✅ وقتی جواب گرفتی، دکمه دیدم رو بزن",
             reply_markup=back_btn("back")
         )
         return
@@ -440,25 +461,32 @@ async def button_handler(update, context):
         )
         return
 
-    # ---- سین شدن ----
     if query.data.startswith("seen_"):
         admin_msg_id = int(query.data.split("_")[1])
         await query.edit_message_reply_markup(reply_markup=None)
         try:
-            await context.bot.send_message(
-                chat_id=ADMIN_ID,
-                text="👁️ پیامت سین شد!"
-            )
+            await context.bot.send_message(chat_id=ADMIN_ID, text="👁️ پیامت سین شد!")
         except:
             pass
         return
 
     # ---- پنل ادمین ----
     if query.data == "admin_stats":
+        try:
+            member_count = await context.bot.get_chat_member_count(CHANNEL_ID)
+        except:
+            member_count = "نامشخص"
         await query.edit_message_text(
-            f"📊 آمار:\n\n👥 کاربران: {len(all_users)}\n🟢 جوین: {join_count}\n🔴 لفت: {left_count}\n"
-            f"⭐ VIP: {len(vip_users)}\n🚫 بلاک: {len(blocked_users)}\n🔇 سایلنت: {len(silenced_users)}\n"
-            f"🎵 درخواست موزیک: {len(music_requests)}\n📅 {datetime.now().strftime('%Y/%m/%d %H:%M')}",
+            f"📊 آمار:\n\n"
+            f"📢 ممبرهای کانال: {member_count}\n"
+            f"🤖 کاربران ربات: {len(all_users)}\n"
+            f"🟢 جوین: {join_count}\n"
+            f"🔴 لفت: {left_count}\n"
+            f"⭐ VIP: {len(vip_users)}\n"
+            f"🚫 بلاک: {len(blocked_users)}\n"
+            f"🔇 سایلنت: {len(silenced_users)}\n"
+            f"🎵 درخواست موزیک: {len(music_requests)}\n"
+            f"📅 {datetime.now().strftime('%Y/%m/%d %H:%M')}",
             reply_markup=back_btn()
         )
         return
@@ -511,7 +539,7 @@ async def button_handler(update, context):
     if query.data.startswith("post_"):
         uid = int(query.data.split("_")[1])
         data = user_sessions.get(uid)
-        if data:
+        if data and data.get('text'):
             await context.bot.send_message(chat_id=CHANNEL_ID, text=f"📨 پیام ناشناس:\n\n{data['text']}")
             await query.answer("✅ پست شد!", show_alert=True)
         return
@@ -520,12 +548,13 @@ async def button_handler(update, context):
         uid = int(query.data.split("_")[1])
         waiting_for_reply_uid = uid
         await query.answer("✏️ جوابت رو بنویس!", show_alert=True)
-        await context.bot.send_message(chat_id=ADMIN_ID, text=f"✏️ جواب برای کاربر بنویس:")
+        await context.bot.send_message(chat_id=ADMIN_ID, text="✏️ جوابت رو بنویس:")
         return
 
     if query.data.startswith("block_"):
         uid = int(query.data.split("_")[1])
         blocked_users.add(uid)
+        save_data()
         await query.answer("🚫 بلاک شد!", show_alert=True)
         await query.edit_message_reply_markup(reply_markup=None)
         return
@@ -533,6 +562,7 @@ async def button_handler(update, context):
     if query.data.startswith("unblock_"):
         uid = int(query.data.split("_")[1])
         blocked_users.discard(uid)
+        save_data()
         await query.answer("✅ آنبلاک شد!", show_alert=True)
         await query.edit_message_reply_markup(reply_markup=None)
         return
@@ -540,6 +570,7 @@ async def button_handler(update, context):
     if query.data.startswith("silence_"):
         uid = int(query.data.split("_")[1])
         silenced_users.add(uid)
+        save_data()
         await query.answer("🔇 سایلنت شد!", show_alert=True)
         await query.edit_message_reply_markup(reply_markup=None)
         return
@@ -547,6 +578,7 @@ async def button_handler(update, context):
     if query.data.startswith("vip_"):
         uid = int(query.data.split("_")[1])
         vip_users.add(uid)
+        save_data()
         await query.answer("⭐ VIP شد!", show_alert=True)
         await query.edit_message_reply_markup(reply_markup=None)
         try:
@@ -556,25 +588,21 @@ async def button_handler(update, context):
         return
 
 
-async def send_reply_to_user(context, uid, admin_msg_id, content_type, **kwargs):
+async def send_reply_to_user(context, uid, admin_msg_id, message):
     seen_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ دیدم", callback_data=f"seen_{admin_msg_id}")]
     ])
-    if content_type == "text":
-        await context.bot.send_message(
-            chat_id=uid,
-            text=f"📩 جواب:\n\n{kwargs['text']}",
-            reply_markup=seen_keyboard
-        )
-    elif content_type == "sticker":
-        await context.bot.send_sticker(chat_id=uid, sticker=kwargs['file_id'])
+    if message.text:
+        await context.bot.send_message(chat_id=uid, text=f"📩 جواب:\n\n{message.text}", reply_markup=seen_keyboard)
+    elif message.sticker:
+        await context.bot.send_sticker(chat_id=uid, sticker=message.sticker.file_id)
         await context.bot.send_message(chat_id=uid, text="👆 جواب", reply_markup=seen_keyboard)
-    elif content_type == "photo":
-        await context.bot.send_photo(chat_id=uid, photo=kwargs['file_id'], caption="📩 جواب", reply_markup=seen_keyboard)
-    elif content_type == "video":
-        await context.bot.send_video(chat_id=uid, video=kwargs['file_id'], caption="📩 جواب", reply_markup=seen_keyboard)
-    elif content_type == "animation":
-        await context.bot.send_animation(chat_id=uid, animation=kwargs['file_id'])
+    elif message.photo:
+        await context.bot.send_photo(chat_id=uid, photo=message.photo[-1].file_id, caption="📩 جواب", reply_markup=seen_keyboard)
+    elif message.video:
+        await context.bot.send_video(chat_id=uid, video=message.video.file_id, caption="📩 جواب", reply_markup=seen_keyboard)
+    elif message.animation:
+        await context.bot.send_animation(chat_id=uid, animation=message.animation.file_id)
         await context.bot.send_message(chat_id=uid, text="👆 جواب", reply_markup=seen_keyboard)
 
 
@@ -587,6 +615,10 @@ async def handle_message(update, context):
     if user.id in blocked_users:
         await message.reply_text("❌ شما مسدود شده‌اید.")
         return
+
+    name = user.full_name or "ناشناس"
+    username = f"@{user.username}" if user.username else "ندارد"
+    vip_badge = "⭐ " if user.id in vip_users else ""
 
     # ---- ادمین ----
     if user.id == ADMIN_ID:
@@ -611,38 +643,19 @@ async def handle_message(update, context):
             if uid not in silenced_users:
                 try:
                     admin_msg_id = user_sessions.get(uid, {}).get('msg_id', 0)
-                    if message.text:
-                        await send_reply_to_user(context, uid, admin_msg_id, "text", text=message.text)
-                    elif message.sticker:
-                        await send_reply_to_user(context, uid, admin_msg_id, "sticker", file_id=message.sticker.file_id)
-                    elif message.photo:
-                        await send_reply_to_user(context, uid, admin_msg_id, "photo", file_id=message.photo[-1].file_id)
-                    elif message.video:
-                        await send_reply_to_user(context, uid, admin_msg_id, "video", file_id=message.video.file_id)
-                    elif message.animation:
-                        await send_reply_to_user(context, uid, admin_msg_id, "animation", file_id=message.animation.file_id)
+                    await send_reply_to_user(context, uid, admin_msg_id, message)
                     await message.reply_text("✅ جواب ارسال شد!", reply_markup=admin_menu())
                 except:
                     await message.reply_text("❌ نتونستم بفرستم!", reply_markup=admin_menu())
             else:
                 await message.reply_text("🔇 سایلنته!", reply_markup=admin_menu())
             return
-
-        if message.reply_to_message:
+if message.reply_to_message:
             for uid, data in user_sessions.items():
                 if data['msg_id'] == message.reply_to_message.message_id:
                     if uid not in silenced_users:
                         admin_msg_id = data['msg_id']
-                        if message.text:
-                            await send_reply_to_user(context, uid, admin_msg_id, "text", text=message.text)
-                        elif message.sticker:
-                            await send_reply_to_user(context, uid, admin_msg_id, "sticker", file_id=message.sticker.file_id)
-                        elif message.photo:
-                            await send_reply_to_user(context, uid, admin_msg_id, "photo", file_id=message.photo[-1].file_id)
-                        elif message.video:
-                            await send_reply_to_user(context, uid, admin_msg_id, "video", file_id=message.video.file_id)
-                        elif message.animation:
-                            await send_reply_to_user(context, uid, admin_msg_id, "animation", file_id=message.animation.file_id)
+                        await send_reply_to_user(context, uid, admin_msg_id, message)
                     await message.reply_text("✅ ارسال شد!")
                     return
 
@@ -662,7 +675,6 @@ async def handle_message(update, context):
 
     waiting_for_message.discard(waiting_entry)
     msg_type = waiting_entry[1]
-    vip_badge = "⭐ " if user.id in vip_users else ""
     keyboard = make_user_keyboard(user.id)
 
     if msg_type == "anon":
@@ -670,35 +682,35 @@ async def handle_message(update, context):
         if message.text:
             sent = await context.bot.send_message(
                 chat_id=ADMIN_ID,
-                text=f"📨 پیام ناشناس:\n\n{message.text}\n\n{vip_badge}🆔 {user.id}",
+                text=f"📨 پیام ناشناس:\n\n{message.text}\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
                 reply_markup=keyboard
             )
         elif message.photo:
             sent = await context.bot.send_photo(
                 chat_id=ADMIN_ID,
                 photo=message.photo[-1].file_id,
-                caption=f"🖼️ عکس ناشناس\n\n{vip_badge}🆔 {user.id}",
+                caption=f"🖼️ عکس ناشناس\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
                 reply_markup=keyboard
             )
         elif message.video:
             sent = await context.bot.send_video(
                 chat_id=ADMIN_ID,
                 video=message.video.file_id,
-                caption=f"🎥 ویدیو ناشناس\n\n{vip_badge}🆔 {user.id}",
+                caption=f"🎥 ویدیو ناشناس\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
                 reply_markup=keyboard
             )
         elif message.sticker:
-            sent = await context.bot.send_sticker(chat_id=ADMIN_ID, sticker=message.sticker.file_id)
-            await context.bot.send_message(
+            await context.bot.send_sticker(chat_id=ADMIN_ID, sticker=message.sticker.file_id)
+            sent = await context.bot.send_message(
                 chat_id=ADMIN_ID,
-                text=f"☝️ استیکر ناشناس\n\n{vip_badge}🆔 {user.id}",
+                text=f"☝️ استیکر ناشناس\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
                 reply_markup=keyboard
             )
         elif message.animation:
-            sent = await context.bot.send_animation(chat_id=ADMIN_ID, animation=message.animation.file_id)
-            await context.bot.send_message(
+            await context.bot.send_animation(chat_id=ADMIN_ID, animation=message.animation.file_id)
+            sent = await context.bot.send_message(
                 chat_id=ADMIN_ID,
-                text=f"☝️ گیف ناشناس\n\n{vip_badge}🆔 {user.id}",
+                text=f"☝️ گیف ناشناس\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
                 reply_markup=keyboard
             )
 
@@ -707,9 +719,10 @@ async def handle_message(update, context):
 
     elif msg_type == "music" and message.text:
         music_requests.append({'music': message.text, 'user_id': user.id})
+        save_data()
         sent = await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"🎵 درخواست موزیک:\n\n{message.text}\n\n{vip_badge}🆔 {user.id}",
+            text=f"🎵 درخواست موزیک:\n\n{message.text}\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
             reply_markup=keyboard
         )
         user_sessions[user.id] = {'msg_id': sent.message_id, 'text': message.text}
@@ -718,7 +731,7 @@ async def handle_message(update, context):
         await context.bot.send_message(chat_id=CHANNEL_ID, text=f"💬 بحث موزیک:\n\n{message.text}")
         sent = await context.bot.send_message(
             chat_id=ADMIN_ID,
-            text=f"💬 بحث موزیک:\n\n{message.text}\n\n{vip_badge}🆔 {user.id}",
+            text=f"💬 بحث موزیک:\n\n{message.text}\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
             reply_markup=keyboard
         )
         user_sessions[user.id] = {'msg_id': sent.message_id, 'text': message.text}
@@ -734,7 +747,7 @@ async def handle_message(update, context):
             )
             sent = await context.bot.send_message(
                 chat_id=ADMIN_ID,
-                text=f"📊 نظرسنجی:\n\n{message.text}\n\n{vip_badge}🆔 {user.id}",
+                text=f"📊 نظرسنجی:\n\n{message.text}\n\n{vip_badge}👤 {name}\n🔗 {username}\n🆔 {user.id}",
                 reply_markup=keyboard
             )
             user_sessions[user.id] = {'msg_id': sent.message_id, 'text': '📊 نظرسنجی'}
@@ -745,30 +758,13 @@ async def handle_message(update, context):
     await message.reply_text("✅ ارسال شد! 😊", reply_markup=main_menu(user.id))
 
 
-async def handle_media(update, context):
-    user = update.effective_user
-    all_users.add(user.id)
-    if user.id in blocked_users:
-        return
-
-    waiting_entry = None
-    for entry in waiting_for_message:
-        if entry[0] == user.id and entry[1] == "anon":
-            waiting_entry = entry
-            break
-
-    if not waiting_entry:
-        return
-
-    await handle_message(update, context)
-
-
 async def unblock_cmd(update, context):
     if update.effective_user.id != ADMIN_ID:
         return
     try:
         uid = int(context.args[0])
         blocked_users.discard(uid)
+        save_data()
         await update.message.reply_text(f"✅ آنبلاک شد!")
     except:
         await update.message.reply_text("❌ مثال: /unblock 123456789")
@@ -780,6 +776,7 @@ async def vip_cmd(update, context):
     try:
         uid = int(context.args[0])
         vip_users.add(uid)
+        save_data()
         await update.message.reply_text(f"⭐ VIP شد!")
         await context.bot.send_message(chat_id=uid, text="⭐ تبریک! VIP شدید!")
     except:
