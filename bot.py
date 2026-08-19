@@ -6,7 +6,7 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, CallbackQueryHandler, filters, ChatMemberHandler
 
-BOT_TOKEN = "8348876985:AAF2LRPrJ_-jf2Ni4aeuoU5MqgD3yxbksGw"
+BOT_TOKEN = "8348876985:AAFhKtMWh5c0JxLIs_rlMNH9oHTUCGQvxCY"
 CHANNEL_ID = "@Craaaazyhouse"
 CHANNEL_LINK = "https://t.me/Craaaazyhouse"
 ADMIN_ID = 1233167568
